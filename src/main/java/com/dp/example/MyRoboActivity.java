@@ -14,4 +14,10 @@ public class MyRoboActivity extends RoboActivity {
         eventManager.fire(new OnSaveInstanceEvent(outState));
         super.onSaveInstanceState(outState);
     }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+        eventManager.fire(new OnRestoreInstanceEvent(savedInstanceState));
+    }
 }

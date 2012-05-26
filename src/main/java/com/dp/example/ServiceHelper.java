@@ -5,7 +5,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
 import com.google.inject.Inject;
-import roboguice.activity.event.OnCreateEvent;
 import roboguice.event.Observes;
 import roboguice.util.Ln;
 
@@ -25,17 +24,17 @@ public class ServiceHelper {
 
     ReceiversMap receivers;
 
-    class ReceiversMap extends ConcurrentHashMap<Integer, RequestHandler> implements Serializable {
+    public static class ReceiversMap extends ConcurrentHashMap<Integer, RequestHandler> implements Serializable {
     }
 
     public ServiceHelper() {
         this.receivers = new ReceiversMap();
     }
 
-    public void onActivityCreated(@Observes OnCreateEvent onCreateEvent) {
+    public void onActivityRestoreInstance(@Observes OnRestoreInstanceEvent onCreateEvent) {
         Ln.d("Called onCreate in onActivityCreated " + onCreateEvent.toString());
 
-        Bundle b = onCreateEvent.getSavedInstanceState();
+        Bundle b = onCreateEvent.getRestoredInstance();
         if (null != b && b.containsKey("receivers"))
             receivers = (ReceiversMap) b.getSerializable("receivers");
 
