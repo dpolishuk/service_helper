@@ -4,14 +4,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.Parcel;
+import android.os.Parcelable;
 import com.google.inject.Inject;
 import roboguice.event.Observes;
 import roboguice.util.Ln;
 
-import java.io.Serializable;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
+import java.util.Set;
 
 /**
  * User: Dmitry Polishuk <dmitry.polishuk@gmail.com>
@@ -24,19 +26,82 @@ public class ServiceHelper {
 
     ReceiversMap receivers;
 
-    public static class ReceiversMap extends ConcurrentHashMap<Integer, RequestHandler> implements Serializable {
-    }
-
     public ServiceHelper() {
         this.receivers = new ReceiversMap();
     }
 
-    public void onActivityRestoreInstance(@Observes OnRestoreInstanceEvent onCreateEvent) {
-        Ln.d("Called onCreate in onActivityCreated " + onCreateEvent.toString());
+    public static class ReceiversMap implements Parcelable {
+        HashMap<Integer, RequestHandler> map;
 
-        Bundle b = onCreateEvent.getRestoredInstance();
-        if (null != b && b.containsKey("receivers"))
-            receivers = (ReceiversMap) b.getSerializable("receivers");
+        public ReceiversMap() {
+            this.map = new HashMap<Integer, RequestHandler>();
+        }
+
+        public ReceiversMap(Parcel in) {
+            map = new HashMap<Integer, RequestHandler>();
+            readFromParcel(in);
+        }
+
+        public void put(Integer ticket, RequestHandler obj) {
+            map.put(ticket, obj);
+        }
+
+        public RequestHandler get(Integer ticket) {
+            return map.get(ticket);
+        }
+
+        public Set<Integer> keySet() {
+            return map.keySet();
+        }
+
+        public void remove(Integer ticket) {
+            map.remove(ticket);
+        }
+
+        public boolean containsKey(Integer ticket) {
+            return map.containsKey(ticket);
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(Parcel parcel, int i) {
+            parcel.writeInt(map.size());
+
+            for (Integer ticket : map.keySet()) {
+                parcel.writeInt(ticket);
+                parcel.writeValue(map.get(ticket));
+            }
+        }
+
+        public void readFromParcel(Parcel in) {
+            int count = in.readInt();
+            for (int i = 0; i < count; i++) {
+                map.put(in.readInt(), (RequestHandler) in.readValue(RequestHandler.class.getClassLoader()));
+            }
+        }
+
+        public static final Parcelable.Creator CREATOR = new Parcelable.Creator() {
+            public ReceiversMap createFromParcel(Parcel in) {
+                return new ReceiversMap(in);
+            }
+
+            public ReceiversMap[] newArray(int size) {
+                return new ReceiversMap[size];
+            }
+        };
+    }
+
+    public void onActivityRestoreInstance(@Observes OnRestoreInstanceEvent event) {
+        Ln.d("Called onCreate in onActivityCreated " + event.toString());
+
+        Bundle b = event.getRestoredInstance();
+        if (null != b && b.containsKey("receivers")) {
+            receivers = (ReceiversMap) b.getParcelable("receivers");
+        }
 
         for (Integer ticket : receivers.keySet()) {
             RequestHandler handler = receivers.get(ticket);
@@ -60,7 +125,7 @@ public class ServiceHelper {
 
     public void onActivitySaveInstance(@Observes OnSaveInstanceEvent event) {
         Bundle b = event.getSavedInstance();
-        b.putSerializable("receivers", receivers);
+        b.putParcelable("receivers", receivers);
     }
 
     public int startService(Intent i, RequestHandler handler) {
